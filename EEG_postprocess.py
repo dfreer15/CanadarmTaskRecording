@@ -10,7 +10,7 @@ from mne.decoding import CSP
 from mne.viz.topomap import _prepare_topo_plot, plot_topomap
 from mne.preprocessing import ICA
 
-from scipy.signal import welch
+# from scipy.signal import welch
 
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -21,7 +21,8 @@ from braindecode.datasets.sensor_positions import get_channelpos, CHANNEL_10_20_
 from sklearn.svm import SVC
 
 
-EEG_data_folder = "/data2/SpaceTrial092019/EEG_Data/"
+# EEG_data_folder = "/data2/SpaceTrial092019/EEG_Data/"
+EEG_data_folder = "D:/PhD_Data/CanadarmTask/"
 ch_names = list(['FP1', 'FP2', 'AF3', 'AF4', 'F7', 'F3', 'FZ', 'F4', 'F8', 'FC5',
                     'FC1', 'FC2', 'FC6', 'T7', 'C3', 'C4', 'CZ', 'T8', 'CP5',
                     'CP1', 'CP2', 'CP6', 'P7', 'P3', 'PZ', 'P4', 'P8', 'PO7', 'PO3',
@@ -35,7 +36,7 @@ def create_mne_raw_object(fname):
     """ Create a mne raw instance from csv file """
     data_in = pd.read_csv(fname)
     # data_in = np.genfromtxt(fname)
-    timestamps = data_in.values[:,0]
+    timestamps = data_in.values[:, 0]
     data = np.transpose(np.asarray(data_in.values[:, 1:]))
 
     montage = read_montage('standard_1020', ch_names)
@@ -51,6 +52,7 @@ def create_mne_raw_object(fname):
 
 
 def segment_signal_without_transition(data_in, label, window_size, overlap=1):
+    global timestamps
 
     data = np.transpose(data_in)
     # print(data.shape)
@@ -217,8 +219,41 @@ def clean_EEG_ICA(raw):
     return (raw)
 
 
+def read_data_from_file(filename):
+    try:
+        raw = read_raw_fif('D:/PhD_Data/CanadarmTask/' + s + 'clean_EEG_Data/' + filename[:-4] + '_raw.fif')
+    except FileNotFoundError:
+        raw = create_mne_raw_object(folder_name + filename)
+        raw = clean_EEG_ICA(raw)
+        # # If you want to save prefiltered data, uncomment the following line
+        # raw.save('D:/PhD_Data/CanadarmTask/' + s + 'clean_EEG_Data/' + filename[:-4] + '_raw.fif', overwrite=True)
+
+        # Get labels for time pressure and latency
+        y = [filename[-6:-4]]
+        y_i = y * (raw.get_data().shape[1])
+
+    return raw, y_i
+
+
+def preprocess_eeg(segments, X_sub_rms_i, rms=False, average=False, mav=False):
+
+    if rms:
+        X_tr_rms = np.sqrt(np.mean(np.square(segments), axis=1))
+        X_sub_rms_i = np.append(X_sub_rms_i, X_tr_rms, axis=0)
+    if average:
+        X_tr_av = np.mean(segments, axis=1)
+    if mav:
+        X_tr_mav = np.mean(np.abs(segments), axis=1)
+    # Can also do WL, AUC, PSD, etc.
+    # Could do wavelet or Fourier analysis
+
+    return X_tr_rms, X_sub_rms_i
+
+
 def plot_combined_topomaps(data_folder):
     print('plotting combined topomaps')
+
+    global folder_name, s
 
     X_final = np.zeros((1, 32))
     y_final = np.zeros(1)
@@ -228,43 +263,34 @@ def plot_combined_topomaps(data_folder):
     norm_by_seg_2 = False
     show_sub_topo = False
 
-    for s in ["A/", "B/", "C/", "D/"]:
-    # for s in ["A/", "C/", "D/"]:
+    for s in ["A/", "B/", "C/", "D/", "E/", "F/", "G/"]:
         print(s)
-        folder_name = data_folder + s
+        folder_name = data_folder + s + "EEGData/"
 
+        # Initialize arrays
         X_fin_sub = np.zeros((1, 32))
         X_sub_rms_i = np.zeros((1, 32))
-
         X_i_tot = np.zeros((1, win_size, 32))
         y_i_tot = np.zeros(1)
 
         for filename in os.listdir(folder_name):
+            print(filename)
             if filename[-8] == 'a':
 
-                try:
-                    raw = read_raw_fif('/data2/SpaeTrial092019/clean_EEG_Data/' + s + filename[:-4] + '_raw.fif')
-                except FileNotFoundError:
-                    raw = create_mne_raw_object(folder_name + filename)
+                # Read eeg data from file
+                raw, y_i = read_data_from_file(filename)
 
-                    # raw.filter(7, 30, method='iir', verbose=False)
-                    raw = clean_EEG_ICA(raw)
-
-                    raw.save('/data2/SpaceTrial092019/clean_EEG_Data/' + s + filename[:-4] + '_raw.fif', overwrite=True)
-
-                y = [filename[-6:-4]]
-                print(y)
-                y_i = y * (raw.get_data().shape[1])
-
+                # Break signal into parts
                 segments, labels, ts = segment_signal_without_transition(raw.get_data(), np.asarray(y_i), win_size)
+
+                # Append to combined data array (all subjects, all trials)
                 X_i_tot = np.append(X_i_tot, segments, axis=0)
                 y_i_tot = np.append(y_i_tot, labels, axis=0)
 
-                X_tr_rms = np.sqrt(np.mean(np.square(segments), axis=1))
-                X_sub_rms_i = np.append(X_sub_rms_i, X_tr_rms, axis=0)
+                # Take different values of the signal
+                preprocess_eeg()
 
                 if (norm_by_seg):
-
                     X_tr_mean = np.mean(X_tr_rms, axis=0)
                     X_tr_sub = np.std(X_tr_rms, axis=0)
 
@@ -316,14 +342,6 @@ def plot_combined_topomaps(data_folder):
     for clss in ['00', '10', '01', '02', '03', '11', '12', '13']:
         print(clss)
 
-        # min0 = np.min(np.mean(X_final[y_final=='00'], axis=0))
-        # max0 = np.max(np.mean(X_final[y_final=='00'], axis=0))
-
-        # min0 = np.min(X_final[y_final == '13'])
-        # max0 = np.max(X_final[y_final == '13'])
-
-        # print(min0, max0)
-
         X_f_cl = X_final[y_final==clss]
         y_f_cl = y_final[y_final==clss]
 
@@ -332,32 +350,13 @@ def plot_combined_topomaps(data_folder):
         plot_topomap(ch_f_cl, positions, vmin=-1, vmax=0.5)
 
 
-
-
-if __name__ == "__main__":
-
-    global markers_ar
-
-    win_size = 500
-    i = 0
-    y_label_A_tp = [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1]
-    y_label_A_lat = [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 3, 2, 1, 3, 2]
-    y_label_B_tp = [0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1]
-    y_label_B_lat = [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 2, 3, 1, 2, 3, 1]
-
-    X_i_tot = np.zeros((1, win_size, 32))
-    y_i_tot_lat = np.zeros(1)
-    y_i_tot_tp = np.zeros(1)
-
-    # plot_combined_topomaps(EEG_data_folder)
-
-    band = 'theta'
-    # band = 'alpha'
-
+def plot_single_trial_time():
     # folder_name = EEG_data_folder + "All_Data/"
     folder_name = EEG_data_folder + "B/"
 
+    i = 0
     for filename in os.listdir(folder_name):
+        print(filename)
         if filename[-8] == 'a':
             markers_ar = [[0, 0]]
 
@@ -405,6 +404,25 @@ if __name__ == "__main__":
 
             plot_power(segments_theta, segments_alpha, segments_beta, ts)
 
+    return
+
+
+if __name__ == "__main__":
+
+    global markers_ar
+
+    win_size = 500
+    y_label_A_tp = [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1]
+    y_label_A_lat = [0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 3, 2, 1, 3, 2]
+    y_label_B_tp = [0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 1]
+    y_label_B_lat = [0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 2, 3, 1, 2, 3, 1]
+
+    X_i_tot = np.zeros((1, win_size, 32))
+    y_i_tot_lat = np.zeros(1)
+    y_i_tot_tp = np.zeros(1)
+
+    plot_combined_topomaps(EEG_data_folder)
+    # plot_single_trial_time()
 
     ret, y = run_csp()
 
@@ -415,7 +433,3 @@ if __name__ == "__main__":
     print(svc.score(ret, y))
 
     # plot.ax_scalp(csp.filters_[0], ch_names)
-
-
-
-
