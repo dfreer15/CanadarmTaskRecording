@@ -6,4 +6,4 @@ To run the simulator, download VR_ISS_build.exe, VR_ISS_build_Data.zip, and Unit
 
 To receive LSL data from the simulator, follow the example in the python code above. More explanation will soon be written for clarity.
 
-The C# files in UnityScripts are the custom source code for the executable.
+The C# files in UnityScripts are the custom source code for the executable, if you wish to create something similar.
