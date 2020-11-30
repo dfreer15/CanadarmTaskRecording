@@ -10,29 +10,25 @@ public class EE_target : MonoBehaviour {
     public Transform EE;
     public GameObject canadarm_base;
 
-// Use this for initialization
+    // Initializes c_control object
     void Start () {
-        //follow_offset = EE.position - transform.position;
         c_control = GameObject.Find("Canadarm").GetComponent<CanadarmControl>();
     }
 	
-	// Update is called once per frame
-	void Update () {
-        
-	}
-
+    // Moves the end-effector target
     public void move_ee_target(GameObject camera, float direction)
     {
         Vector3 unit_vector_x = new Vector3(1, 0, 0);
         Vector3 unit_vector_y = new Vector3(0, 1, 0);
         Vector3 unit_vector_z = new Vector3(0, 0, 1);
 
+	// Determines coordinate frame for traditional control
         if (c_control.ee_mode)
             camera = EE.gameObject;
         if (c_control.base_mode)
             camera = canadarm_base;
 
-        //Quaternion cam_rot = camera.transform.localRotation;
+	// Determines direction of movement
         Quaternion cam_rot = camera.transform.rotation;
         Vector3 cam_forward = camera.transform.forward;
 
@@ -41,7 +37,7 @@ public class EE_target : MonoBehaviour {
         Vector3 x_direc = cam_rot * unit_vector_x;
         Vector3 all_direc = new Vector3(x_direc[2], y_direc[2], z_direc[2]);
 
-        //transform.position = transform.position + direction*cam_forward / 700;
+	// Moves EE target
         transform.position = transform.position + direction * z_direc *EE_max_speed;
     }
 
@@ -56,7 +52,6 @@ public class EE_target : MonoBehaviour {
         if (c_control.base_mode)
             camera = canadarm_base;
 
-        //Quaternion cam_rot = camera.transform.localRotation;
         Quaternion cam_rot = camera.transform.rotation;
 
         Vector3 z_direc = cam_rot * unit_vector_z;
@@ -64,9 +59,6 @@ public class EE_target : MonoBehaviour {
         Vector3 x_direc = cam_rot * unit_vector_x;
         Vector3 all_direc = new Vector3(x_direc[1], y_direc[1], z_direc[1]);
 
-        //print("moving lr");
-
-        //transform.position = transform.position + direction * all_direc / 700;
         transform.position = transform.position + direction * x_direc *EE_max_speed;
     }
 
