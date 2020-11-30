@@ -2,8 +2,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-
 using Assets.LSL4Unity.Scripts;
+
+// ###################################################################
+// This script is connected to the obstacles that float around the ISS
+// ###################################################################
+
 
 public class Collision_Points : MonoBehaviour {
 
@@ -23,20 +27,23 @@ public class Collision_Points : MonoBehaviour {
 
     public CanadarmControl c_control;
 
-    // Use this for initialization
+    // Initializes the start time
     void Start () {
         startTime = Time.time;
-	}
+    }
 	
-	// Update is called once per frame
-	void Update () {
-        if (collided)
+    // Update is called once per frame
+    void Update () {
+    	
+	// Checks for collisions with this object
+	if (collided)
         {
             Color cp_color = collision_panel.color;
             cp_color.a -= 0.001f;
             collision_panel.color = cp_color;
         }
 
+	// Moves objects if they are meant to be moving
         if (moving)
         {
             if (Time.time - startTime > update_vel_time)
@@ -51,23 +58,18 @@ public class Collision_Points : MonoBehaviour {
             }
             Update_Pose();
         }
-	}
+    }
 
+    // Slows down obstacle until next update time is reached
     void Update_Pose()
     {
-        /*Vector3 obj_pos = transform.position;
-
-        obj_pos[0] += random_x/100.0f;
-        obj_pos[1] += random_y/100.0f;
-        obj_pos[2] += random_z/100.0f;*/
-
-        //transform.position = obj_pos;
         transform.position += obj_vel;
         obj_vel.x *= 0.999f;
         obj_vel.y *= 0.999f;
         obj_vel.z *= 0.999f;
     }
 
+    // Called if something collides with this object
     public void OnCollisionEnter(Collision collision)
     {
         string[] mark = new string[2];
@@ -79,14 +81,13 @@ public class Collision_Points : MonoBehaviour {
             cp_color.a += 0.5f;
             collision_panel.color = cp_color;
 
-            print(collision.gameObject.name + " collided with " + gameObject.name);
-            print(Time.time);
+	    // Logs time of collision and updates points
             c_control.event_log.Add(collision.gameObject.name + " collided with " + gameObject.name);
             c_control.event_log.Add(Time.time.ToString());
             point_counter.Update_Points(-100);
             collided = true;
 
-            // Send to LSL
+            // Send type of collision to LSL for synchronization
             if (gameObject.name == "A1_Collider"){
                 mark[0] = "-51";
                 mark[1] = (Time.time).ToString();
@@ -105,13 +106,11 @@ public class Collision_Points : MonoBehaviour {
                 mark[1] = (Time.time).ToString();
                 markerStream.Write(mark);
             }
-            else{       
+            else{                                       // Collision with the ISS
                 mark[0] = "-55";
                 mark[1] = (Time.time).ToString();
                 markerStream.Write(mark);
             }
-
         }
-        
     }
 }
